@@ -3,7 +3,7 @@
 
 
 
-% rosshutdown
+rosshutdown
 rosinit('http://shyreckdc-16-PC:11311')
 clear;clc;
 format long
@@ -34,7 +34,8 @@ force_msg = rosmessage(force_pub);
 pause(2);
 
 % loop rate 50 hz
-rate = robotics.ros.Rate(computation_system_node,50);
+loop_rate_hz = 50;
+rate = robotics.ros.Rate(computation_system_node,loop_rate_hz);
 
 % pid for control law
 p = 1.5;  % pid
@@ -48,7 +49,14 @@ preZ = 0;
 preQ = current_pose_data.Rotation;
 preRotm = quat2rotm([preQ.W preQ.X preQ.Y preQ.Z]);
 
-
+% used to compensate gravity
+gravity_count = 0;  % used to lower rate of recording gravity sequence
+rosparam('set','/gravity_record_seq',false);
+rosparam('set','/calculate_compensate',false);
+max_columns = 10;
+force_sensor_output = zeros(6,max_columns);
+atiRotm_matrix = zeros(3,3*max_columns);
+gravity_record_seq_index = 1; % index for output and atiRotm_matrix
 while(1)
     
     % get current value
@@ -67,8 +75,12 @@ while(1)
     atiZ = ati_pose_data.Translation.Z;
     atiQ = ati_pose_data.Rotation;
     atiRotm = quat2rotm([atiQ.W atiQ.X atiQ.Y atiQ.Z]);
-    
-    
+    Fx = current_force_data.Wrench.Force.X;
+    Fy = current_force_data.Wrench.Force.Y;
+    Fz = current_force_data.Wrench.Force.Z;
+    Mx = current_force_data.Wrench.Torque.X;
+    My = current_force_data.Wrench.Torque.Y;
+    Mz = current_force_data.Wrench.Torque.Z;
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % This part for robot speed calculation
@@ -100,7 +112,7 @@ while(1)
     
     
     send(vel_pub,vel_msg);
-
+    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     
@@ -109,14 +121,43 @@ while(1)
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % This part for gravity compensation
+    gravity_record_seq = rosparam('get','/gravity_record_seq');  %record sensor output and rotation matrix
+    if gravity_record_seq
+        gravity_count = gravity_count + 1;
+        % lower recording rate in matrix array, 0.5s per record
+        if gravity_count > 0.5*loop_rate_hz
+            gravity_count = 0;
+            force_sensor_output(:,gravity_record_seq_index) = [Fx;Fy;Fz;Mx;My;Mz]
+            atiRotm_matrix(:,(gravity_record_seq_index*3-2):(3*gravity_record_seq_index)) = atiRotm
+            gravity_record_seq_index = gravity_record_seq_index + 1;
+            if gravity_record_seq_index > max_columns
+                rosparam('set','/gravity_record_seq',false);
+            end
+        end
+    end
     
-    
+    calculate_compensate = rosparam('get','/calculate_compensate');
+    if calculate_compensate
+        rosparam('set','/gravity_record_seq',false);
+        % delete all zeros columns
+        force_sensor_output(:,all(force_sensor_output==0,1))=[];
+        atiRotm_matrix(:,all(atiRotm_matrix==0,1))=[];
+        % calculate compensate
+        [e_S0,calibrated_output,M,G,e_alpha,e_beta]=estimate_M_G(force_sensor_output,atiRotm_matrix)
+        
+        % clear cache 
+        rosparam('set','/calculate_compensate',false);
+%         force_sensor_output = zeros(6,max_columns);
+%         atiRotm_matrix = zeros(3,3*max_columns);
+%         gravity_count = 0;
+%         gravity_record_seq_index = 1;
+    end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     
     
     
-        
+    
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % This part for stable check
@@ -131,7 +172,7 @@ while(1)
         robot_stable_count = 0;
     end
     
-    if robot_stable_count > 150
+    if robot_stable_count > 3*loop_rate_hz
         rosparam('set','/robot_stable',true);
     end
     
@@ -145,7 +186,7 @@ while(1)
         robot_in_goal_count = 0;
     end
     
-    if robot_in_goal_count > 150
+    if robot_in_goal_count > 3*loop_rate_hz
         rosparam('set','/robot_in_goal',true);
     end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -175,8 +216,8 @@ ref_pose_data = message;
 end
 
 function [] = forceCB(~,message)
-global current_force
-current_force = message;
+global current_force_data
+current_force_data = message;
 end
 
 function limited_speed = limit_speed(original_speed,max_speed)
