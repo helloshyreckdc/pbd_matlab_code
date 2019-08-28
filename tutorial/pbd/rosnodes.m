@@ -24,46 +24,41 @@ speed_calculation = robotics.ros.Node('speed_calculation', masterHost);
 record_gravity_seq = robotics.ros.Node('record_gravity_seq', masterHost);
 
 
-global current_pose_data   % frame base to tool0
-global pre_pose_data   % frame base to tool0
-global ref_pose_data       % frame base to tool0
-global current_force_data  % force measured in frame ati_sensor 
-global ati_pose_data       % frame base to frame ati_sensor 
-current_pose_data = rosmessage('geometry_msgs/Transform');
-pre_pose_data = rosmessage('geometry_msgs/Transform');
-ref_pose_data = rosmessage('geometry_msgs/Transform');
-current_force_data = rosmessage('geometry_msgs/WrenchStamped');
-ati_pose_data = rosmessage('geometry_msgs/Transform');
+% global current_pose_data   % frame base to tool0
+% global pre_pose_data   % frame base to tool0
+% global ref_pose_data       % frame base to tool0
+% global averaged_raw_force_data  % force measured in frame ati_sensor 
+% global calibrated_force_data  % force measured in frame ati_sensor 
+% global ati_pose_data       % frame base to frame ati_sensor 
+
+% current_pose_data = rosmessage('geometry_msgs/Transform');
+% pre_pose_data = rosmessage('geometry_msgs/Transform');
+% ref_pose_data = rosmessage('geometry_msgs/Transform');
+% averaged_raw_force_data = rosmessage('geometry_msgs/WrenchStamped');
+% calibrated_force_data = rosmessage('geometry_msgs/WrenchStamped');
+% ati_pose_data = rosmessage('geometry_msgs/Transform');
+
 current_pose = rossubscriber('/current_pose','geometry_msgs/Transform',@currCB);
 ref_pose = rossubscriber('/ref_traj','geometry_msgs/Transform',@refCB);
-current_force = rossubscriber('/netft_data','geometry_msgs/WrenchStamped',@forceCB);
+averaged_raw_force = rossubscriber('/averaged_raw_force','geometry_msgs/WrenchStamped',@forceCB);
 ati_pose = rossubscriber('/ati_current_pose','geometry_msgs/Transform',@ati_poseCB);
 
 
 vel_pub = rospublisher('/ur/velocity', 'geometry_msgs/Twist');
 vel_msg = rosmessage(vel_pub);
-force_pub = rospublisher('/force_compensated', 'geometry_msgs/WrenchStamped');
-force_msg = rosmessage(force_pub);
+gravity_compensated_force_pub = rospublisher('/gravity_compensated_wrench', 'geometry_msgs/WrenchStamped');
+gravity_compensated_force_msg = rosmessage(gravity_compensated_force_pub);
 
-
+ 
 % % Create two service servers for the '/add' and '/reply' services
 % srv1 = robotics.ros.ServiceServer(node_3,'/add', 'roscpp_tutorials/TwoInts');
 % srv2 = robotics.ros.ServiceServer(node_3,'/reply', 'std_srvs/Empty', @exampleHelperROSEmptyCallback);
 
-% % used to judge stable
-% robot_in_goal_count = 0;
-% robot_stable_count = 0;
-% preX = 0;
-% preY = 0;
-% preZ = 0;
-% preQ = current_pose_data.Rotation;
-% preRotm = quat2rotm([preQ.W preQ.X preQ.Y preQ.Z]);
 
-
-% Create a timer for publishing messages and assign appropriate handles
-% The timer will call exampleHelperROSSimTimer at a rate of 10 Hz.
+% for speed control
 speed_calculation_handle.vel_pub = vel_pub;
 speed_calculation_handle.vel_msg = vel_msg;
+
 
 % record_gravity_seq_handle.scanPub = scanPub;
 % record_gravity_seq_handle.scanPubmsg = scanPubmsg;
@@ -71,8 +66,25 @@ speed_calculation_handle.vel_msg = vel_msg;
 % 50hz
 global loop_rate_hz
 loop_rate_hz = 50;
+
+% for gravity compensation
+rosparam('set','/gravity_record_seq',false);
+rosparam('set','/calculate_compensate',false);
+global force_sensor_output atiRotm_matrix max_gravity_seq_columns 
+global mass_matrix sensor_bias
+sensor_bias = zeros(6,1);
+mass_matrix = zeros(6,3);
+max_gravity_seq_columns = 10;
+force_sensor_output = zeros(6,max_gravity_seq_columns);
+atiRotm_matrix = zeros(3,3*max_gravity_seq_columns);
+
+
+pause(5)  % wait for initialize
+
 speed_calculation_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@speed_calculation_callback,speed_calculation_handle});
 stable_check_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@stable_check_callback});
+gravity_record_seq_timer = ExampleHelperROSTimer(250/loop_rate_hz, {@gravity_record_seq_callback});
+estimate_M_G_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@estimate_M_G_callback});
 
 
 
@@ -83,21 +95,25 @@ function [] = currCB(~,message)
 global current_pose_data
 global pre_pose_data
 pre_pose_data = current_pose_data;
-current_pose_data = message;
+current_pose_data = [message.Translation.X;message.Translation.Y;message.Translation.Z;...
+    message.Rotation.W;message.Rotation.X;message.Rotation.Y;message.Rotation.Z];  %quaternion w,x,y,z
 end
 
 function [] = ati_poseCB(~,message)
 global ati_pose_data
-ati_pose_data = message;
+ati_pose_data = [message.Translation.X;message.Translation.Y;message.Translation.Z;...
+    message.Rotation.W;message.Rotation.X;message.Rotation.Y;message.Rotation.Z];  %quaternion w,x,y,z
 end
 
 function [] = refCB(~,message)
 global ref_pose_data
-ref_pose_data = message;
+ref_pose_data = [message.Translation.X;message.Translation.Y;message.Translation.Z;...
+    message.Rotation.W;message.Rotation.X;message.Rotation.Y;message.Rotation.Z];  %quaternion w,x,y,z
 end
 
 function [] = forceCB(~,message)
-global current_force_data
-current_force_data = message;
+global averaged_raw_force_data
+averaged_raw_force_data = [message.Wrench.Force.X;message.Wrench.Force.Y;message.Wrench.Force.Z;...
+    message.Wrench.Torque.X;message.Wrench.Torque.Y;message.Wrench.Torque.Z];
 end
 

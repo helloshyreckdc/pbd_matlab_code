@@ -9,23 +9,18 @@ p = 1.5;  % pid
 
 
 % get value
-refX = ref_pose_data.Translation.X;
-refY = ref_pose_data.Translation.Y;
-refZ = ref_pose_data.Translation.Z;
-refQ = ref_pose_data.Rotation;   % quaternion value;
-refRotm = quat2rotm([refQ.W refQ.X refQ.Y refQ.Z]);
-curX = current_pose_data.Translation.X;
-curY = current_pose_data.Translation.Y;
-curZ = current_pose_data.Translation.Z;
-curQ = current_pose_data.Rotation;
-curRotm = quat2rotm([curQ.W curQ.X curQ.Y curQ.Z]);
+ref_trans = ref_pose_data(1:3);
+refRotm = quat2rotm(ref_pose_data(4:7));
+cur_trans = current_pose_data(1:3);
+curRotm = quat2rotm(current_pose_data(4:7));
 
 
 
 % control law
-vel_msg.Linear.X = p*(refX - curX);
-vel_msg.Linear.Y = p*(refY - curY);
-vel_msg.Linear.Z = p*(refZ - curZ);
+diff_trans = ref_trans - cur_trans;
+vel_msg.Linear.X = p*diff_trans(1);
+vel_msg.Linear.Y = p*diff_trans(2);
+vel_msg.Linear.Z = p*diff_trans(3);
 vel_msg.Angular.X = 0;
 vel_msg.Angular.Y = 0;
 vel_msg.Angular.Z = 0;
@@ -51,4 +46,13 @@ vel_msg.Angular.Z = limit_speed(vel_msg.Angular.Z,0.1);
 send(vel_pub,vel_msg);
 
 
+end
+
+
+function limited_speed = limit_speed(original_speed,max_speed)
+if original_speed > max_speed
+    limited_speed = max_speed;
+else
+    limited_speed = original_speed;
+end
 end

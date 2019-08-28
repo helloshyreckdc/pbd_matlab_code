@@ -14,24 +14,17 @@ end
 
 
 % get value
-preX = pre_pose_data.Translation.X;
-preY = pre_pose_data.Translation.Y;
-preZ = pre_pose_data.Translation.Z;
-preQ = pre_pose_data.Rotation;   % quaternion value;
-preRotm = quat2rotm([preQ.W preQ.X preQ.Y preQ.Z]);
-refX = ref_pose_data.Translation.X;
-refY = ref_pose_data.Translation.Y;
-refZ = ref_pose_data.Translation.Z;
-refQ = ref_pose_data.Rotation;   % quaternion value;
-refRotm = quat2rotm([refQ.W refQ.X refQ.Y refQ.Z]);
-curX = current_pose_data.Translation.X;
-curY = current_pose_data.Translation.Y;
-curZ = current_pose_data.Translation.Z;
-curQ = current_pose_data.Rotation;
-curRotm = quat2rotm([curQ.W curQ.X curQ.Y curQ.Z]);
+% get value
+ref_trans = ref_pose_data(1:3);
+refRotm = quat2rotm(ref_pose_data(4:7));   % quaternion value;  w x y z
+cur_trans = current_pose_data(1:3);
+curRotm = quat2rotm(current_pose_data(4:7));
+pre_trans = pre_pose_data(1:3);
+preRotm = quat2rotm(pre_pose_data(4:7));
+
 
     % judge stable, if stable for 3 seconds set /robot_stable true
-    linear_dis = sqrt((preX - curX)^2+(preY - curY)^2+(preZ - curZ)^2);
+    linear_dis = norm(cur_trans - pre_trans);
     angular_dis = max(abs(preRotm - curRotm),[],'all');
     if linear_dis < 0.001 && angular_dis<0.001
         robot_stable_count = robot_stable_count+1;
@@ -47,7 +40,7 @@ curRotm = quat2rotm([curQ.W curQ.X curQ.Y curQ.Z]);
     
     % judge robot in goal, if stable for 3 seconds set /robot_in_goal true
     diff_largest_element = max(abs(refRotm - curRotm),[],'all');
-    ref_distance = sqrt((refX - curX)^2+(refY - curY)^2+(refZ - curZ)^2);
+    ref_distance = norm(ref_trans - cur_trans);
     if ref_distance < 0.001 && diff_largest_element<0.001
         robot_in_goal_count = robot_in_goal_count+1;
     else
