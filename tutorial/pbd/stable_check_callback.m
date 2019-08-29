@@ -16,11 +16,11 @@ end
 % get value
 % get value
 ref_trans = ref_pose_data(1:3);
-refRotm = quat2rotm(ref_pose_data(4:7));   % quaternion value;  w x y z
+refRotm = quat2rotm(ref_pose_data(4:7)');   % quaternion value;  w x y z
 cur_trans = current_pose_data(1:3);
-curRotm = quat2rotm(current_pose_data(4:7));
+curRotm = quat2rotm(current_pose_data(4:7)');
 pre_trans = pre_pose_data(1:3);
-preRotm = quat2rotm(pre_pose_data(4:7));
+preRotm = quat2rotm(pre_pose_data(4:7)');
 
 
     % judge stable, if stable for 3 seconds set /robot_stable true

@@ -68,8 +68,10 @@ global loop_rate_hz
 loop_rate_hz = 50;
 
 % for gravity compensation
+rosparam('set','/clear_gravity_seq',false);
 rosparam('set','/gravity_record_seq',false);
 rosparam('set','/calculate_compensate',false);
+rosparam('set','/calculate_calibration_matrix',false);
 global force_sensor_output atiRotm_matrix max_gravity_seq_columns 
 global mass_matrix sensor_bias
 sensor_bias = zeros(6,1);
@@ -83,7 +85,7 @@ pause(5)  % wait for initialize
 
 speed_calculation_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@speed_calculation_callback,speed_calculation_handle});
 stable_check_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@stable_check_callback});
-gravity_record_seq_timer = ExampleHelperROSTimer(250/loop_rate_hz, {@gravity_record_seq_callback});
+gravity_record_seq_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@gravity_record_seq_callback});
 estimate_M_G_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@estimate_M_G_callback});
 
 

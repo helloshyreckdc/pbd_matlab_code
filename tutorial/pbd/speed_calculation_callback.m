@@ -10,9 +10,9 @@ p = 1.5;  % pid
 
 % get value
 ref_trans = ref_pose_data(1:3);
-refRotm = quat2rotm(ref_pose_data(4:7));
+refRotm = quat2rotm(ref_pose_data(4:7)');
 cur_trans = current_pose_data(1:3);
-curRotm = quat2rotm(current_pose_data(4:7));
+curRotm = quat2rotm(current_pose_data(4:7)');
 
 
 

@@ -7,10 +7,19 @@ if isempty(seq_index)
     seq_index = 1;
 end
 
+clear_gravity_seq = rosparam('get','/clear_gravity_seq');
+if clear_gravity_seq
+    force_sensor_output = zeros(6,max_gravity_seq_columns);
+    atiRotm_matrix = zeros(3,3*max_gravity_seq_columns);
+    seq_index = 1;
+    rosparam('set','/clear_gravity_seq',false);
+end
+
+
 gravity_record_seq = rosparam('get','/gravity_record_seq');  %record sensor output and rotation matrix
 if gravity_record_seq
     
-    atiRotm = quat2rotm(ati_pose_data(4:7));
+    atiRotm = quat2rotm(ati_pose_data(4:7)');
     wrench_vector = averaged_raw_force_data;
     
     %judge if two poses are too near
@@ -26,9 +35,10 @@ if gravity_record_seq
     end
     
     if seq_index > max_gravity_seq_columns
-        rosparam('set','/gravity_record_seq',false);
-        seq_index = 1;
+                seq_index = 1;
     end
+    
+    rosparam('set','/gravity_record_seq',false);
 end
 
 
