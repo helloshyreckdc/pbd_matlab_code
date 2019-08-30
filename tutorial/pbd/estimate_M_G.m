@@ -1,4 +1,4 @@
-function [e_S0,calibrated_output,M,G,e_alpha,e_beta]=estimate_M_G(O,R)
+function [e_S0,calibrated_output,M,G,e_alpha,e_beta,e_m,e_r]=estimate_M_G(O,R)
 %下面的算法 基于六维力传感器的工业机器人末端负载受力感知研究
 %世界坐标系到基坐标系的旋转矩阵，先绕世界坐标系x轴转alpha度,然后绕世界坐标系y轴转beta度，再绕，世界坐标系z轴转gamma度
 %output calibrated_output is the Output-bias,several columns; M is [I;skew(r)]; G is a 3*1 vector which equals m*g 
@@ -12,7 +12,7 @@ O_F = O(1:3,:);
 O_M = O(4:6,:);
 vector_F = reshape(O_F,[],1);
 vector_M = reshape(O_M,[],1);
-[rows, columns] = size(O);
+[~, columns] = size(O);
 matrix_F_left_half = zeros(3*columns,3);
 for i=1:columns
     matrix_F_left_half((3*i-2):(3*i),:) = -skew(O_F(:,i));

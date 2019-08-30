@@ -1,6 +1,6 @@
 function gravity_record_seq_callback(~, ~)
 
-global ati_pose_data averaged_raw_force_data
+global ati_pose_data averaged_raw_force_data averaged_calibrated_force_data
 global force_sensor_output atiRotm_matrix max_gravity_seq_columns
 persistent seq_index;
 if isempty(seq_index)
@@ -20,7 +20,13 @@ gravity_record_seq = rosparam('get','/gravity_record_seq');  %record sensor outp
 if gravity_record_seq
     
     atiRotm = quat2rotm(ati_pose_data(4:7)');
-    wrench_vector = averaged_raw_force_data;
+    
+    choose_raw = rosparam('get','/choose_raw_force_data_in_gravity_record_seq');
+    if choose_raw
+        wrench_vector = averaged_raw_force_data;
+    else
+        wrench_vector = averaged_calibrated_force_data;
+    end
     
     %judge if two poses are too near
     if seq_index > 1
@@ -35,7 +41,7 @@ if gravity_record_seq
     end
     
     if seq_index > max_gravity_seq_columns
-                seq_index = 1;
+        seq_index = 1;
     end
     
     rosparam('set','/gravity_record_seq',false);
