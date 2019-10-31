@@ -52,6 +52,8 @@ end
 function limited_speed = limit_speed(original_speed,max_speed)
 if original_speed > max_speed
     limited_speed = max_speed;
+elseif original_speed < -max_speed;
+    limited_speed = -max_speed;
 else
     limited_speed = original_speed;
 end

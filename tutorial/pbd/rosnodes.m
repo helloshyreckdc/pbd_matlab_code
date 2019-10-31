@@ -27,36 +27,49 @@ record_gravity_seq = robotics.ros.Node('record_gravity_seq', masterHost);
 global current_pose_data   % frame base to tool0
 global pre_pose_data   % frame base to tool0
 global ref_pose_data       % frame base to tool0
+global sr300_pose_data     % frame base to sr300 camera frame
 global averaged_raw_force_data  % force measured in frame ati_sensor 
 global calibrated_force_data  % force measured in frame ati_sensor 
 global ati_pose_data       % frame base to frame ati_sensor 
 global sr300_data
+global sr300_vel_data
 
 current_pose_data = [0;0;0;1;0;0;0];
 pre_pose_data = [0;0;0;1;0;0;0];
 ref_pose_data = [0;0;0;1;0;0;0];
+sr300_pose_data = [0;0;0;1;0;0;0];
 averaged_raw_force_data = [0;0;0;0;0;0];
 averaged_calibrated_force_data = [0;0;0;0;0;0];
 ati_pose_data = [0;0;0;1;0;0;0];
 sr300_data = zeros(480,640,3);
+sr300_vel_data = zeros(6,1);
 
 current_pose = rossubscriber('/current_pose','geometry_msgs/Transform',@currCB);
 ref_pose = rossubscriber('/ref_traj','geometry_msgs/Transform',@refCB);
+sr300_pose = rossubscriber('/sr300_pose','geometry_msgs/Transform',@sr300_poseCB);
 averaged_calibrated_force = rossubscriber('/averaged_calibrated_force','geometry_msgs/WrenchStamped',@averaged_calibrated_forceCB);
 averaged_raw_force = rossubscriber('/averaged_raw_force','geometry_msgs/WrenchStamped',@averaged_raw_forceCB);
 ati_pose = rossubscriber('/ati_current_pose','geometry_msgs/Transform',@ati_poseCB);
 % sr300 = rossubscriber('/xtion/rgb/image_raw',@sr300CB);
-sr300 = rossubscriber('/sr300/color/image_rect_color',@sr300CB);
+sr300 = rossubscriber('/sr300/color/image_rect_color','sensor_msgs/Image',@sr300CB);
+sr300_vel = rossubscriber('sr300_vel','geometry_msgs/Twist',@sr300_velCB);
 
 vel_pub = rospublisher('/ur/velocity', 'geometry_msgs/Twist');
 vel_msg = rosmessage(vel_pub);
 % gravity_compensated_force_pub = rospublisher('/gravity_compensated_wrench', 'geometry_msgs/WrenchStamped');
 % gravity_compensated_force_msg = rosmessage(gravity_compensated_force_pub);
 
- 
+
+% for visual servo
+visual_servo_vel_pub = rospublisher('/visual_servo/ur/velocity', 'geometry_msgs/Twist');
+visual_servo_vel_msg = rosmessage(visual_servo_vel_pub);
+visual_servo_calculation_handle.visual_servo_vel_pub = visual_servo_vel_pub;
+visual_servo_calculation_handle.visual_servo_vel_msg = visual_servo_vel_msg;
+
 % % Create two service servers for the '/add' and '/reply' services
 % srv1 = robotics.ros.ServiceServer(node_3,'/add', 'roscpp_tutorials/TwoInts');
 % srv2 = robotics.ros.ServiceServer(node_3,'/reply', 'std_srvs/Empty', @exampleHelperROSEmptyCallback);
+
 
 
 % for speed control
@@ -92,11 +105,12 @@ atiRotm_matrix = zeros(3,3*max_gravity_seq_columns);
 
 pause(5)  % wait for initialize
 
-visual_servo_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@visual_servo_callback});
-speed_calculation_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@speed_calculation_callback,speed_calculation_handle});
+% visual_servo_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@visual_servo_callback});
+% speed_calculation_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@speed_calculation_callback,speed_calculation_handle});
+visual_servo_calculation_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@visual_servo_calculation_callback,visual_servo_calculation_handle});
 stable_check_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@stable_check_callback});
-gravity_record_seq_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@gravity_record_seq_callback});
-estimate_M_G_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@estimate_M_G_callback});
+% gravity_record_seq_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@gravity_record_seq_callback});
+% estimate_M_G_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@estimate_M_G_callback});
 
 
 
@@ -123,9 +137,21 @@ ref_pose_data = [message.Translation.X;message.Translation.Y;message.Translation
     message.Rotation.W;message.Rotation.X;message.Rotation.Y;message.Rotation.Z];  %quaternion w,x,y,z
 end
 
+function [] = sr300_poseCB(~,message)
+global sr300_pose_data
+sr300_pose_data = [message.Translation.X;message.Translation.Y;message.Translation.Z;...
+    message.Rotation.W;message.Rotation.X;message.Rotation.Y;message.Rotation.Z];  %quaternion w,x,y,z
+end
+
 function [] = sr300CB(~,message)
 global sr300_data
 sr300_data = readImage(message);
+end
+
+function [] = sr300_velCB(~,message)
+global sr300_vel_data
+sr300_vel_data = [message.Linear.X;message.Linear.Y;message.Linear.Z;...
+    message.Angular.X;message.Angular.Y;message.Angular.Z];
 end
 
 function [] = averaged_raw_forceCB(~,message)
