@@ -35,12 +35,12 @@ if(~isnan(det(curRotm)))
 end
 
 % speed limit
-vel_msg.Linear.X = limit_speed(vel_msg.Linear.X,0.1);
-vel_msg.Linear.Y = limit_speed(vel_msg.Linear.Y,0.1);
-vel_msg.Linear.Z = limit_speed(vel_msg.Linear.Z,0.1);
-vel_msg.Angular.X = limit_speed(vel_msg.Angular.X,0.1);
-vel_msg.Angular.Y = limit_speed(vel_msg.Angular.Y,0.1);
-vel_msg.Angular.Z = limit_speed(vel_msg.Angular.Z,0.1);
+vel_msg.Linear.X = limit_speed(vel_msg.Linear.X,0.0001,0.1);
+vel_msg.Linear.Y = limit_speed(vel_msg.Linear.Y,0.0001,0.1);
+vel_msg.Linear.Z = limit_speed(vel_msg.Linear.Z,0.0001,0.1);
+vel_msg.Angular.X = limit_speed(vel_msg.Angular.X,0.0001,0.1);
+vel_msg.Angular.Y = limit_speed(vel_msg.Angular.Y,0.0001,0.1);
+vel_msg.Angular.Z = limit_speed(vel_msg.Angular.Z,0.0001,0.1);
 
 
 send(vel_pub,vel_msg);
@@ -49,12 +49,3 @@ send(vel_pub,vel_msg);
 end
 
 
-function limited_speed = limit_speed(original_speed,max_speed)
-if original_speed > max_speed
-    limited_speed = max_speed;
-elseif original_speed < -max_speed;
-    limited_speed = -max_speed;
-else
-    limited_speed = original_speed;
-end
-end
