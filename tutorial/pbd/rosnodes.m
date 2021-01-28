@@ -120,17 +120,35 @@ atiRotm_matrix = zeros(3,3*max_gravity_seq_columns);
 pause(5)  % wait for initialize
 
 % visual_servo_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@visual_servo_callback});
-% speed_calculation_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@speed_calculation_callback,speed_calculation_handle});
+
 % visual_servo_calculation_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@visual_servo_calculation_callback,visual_servo_calculation_handle});
-stable_check_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@stable_check_callback});
-gravity_record_seq_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@gravity_record_seq_callback});
-estimate_M_G_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@estimate_M_G_callback});
-% admittance_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@admittance_control_callback,speed_handle});
-assembly_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@assembly_control_callback,speed_handle});
+
+% speed_calculation_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@speed_calculation_callback,speed_calculation_handle});
+
+% stable_check_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@stable_check_callback});
+
+% gravity_record_seq_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@gravity_record_seq_callback});
+% estimate_M_G_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@estimate_M_G_callback});
+
+% single_axis_admittance_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@single_axis_admittance_control_callback,speed_handle});
+multi_axis_admittance_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@multi_axis_admittance_control_callback,speed_handle});
+
+% assembly_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@assembly_control_callback,speed_handle});
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% find a bug for persistent variable in ExampleHelperROSTimer
+% if the screen output of the persistent variable is suppressed and then
+% output again, the value of the persistent variable will be recalculated
 
+% The reason is that after a saving operation, all the function variables
+% are re-initialized
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+global demo_ati_pose_seq demo_count demo_vel_seq demo_energy_seq demo_force_seq;
+global t n;
+t=1:500;
+n=1;
 
 function [] = currCB(~,message)
 global current_pose_data

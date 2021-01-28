@@ -3,17 +3,19 @@ function assembly_control_callback(~, ~, handles)
 global ati_pose_data
 global gravity_compensated_force
 global current_vel_data
+global loop_rate_hz
 
-global force_before_contact;
-global demo_force_seq;
-global force_seq;
-global pos_seq exe_count vel_seq energy_seq;
-global demo_ati_pose_seq demo_count demo_vel_seq demo_energy_seq;
+persistent force_before_contact;
+persistent force_seq;
+persistent pos_seq exe_count vel_seq energy_seq;
+global demo_ati_pose_seq demo_count demo_vel_seq demo_energy_seq demo_force_seq;
 
 size_of_seq = 10000;
 persistent contact_force pre_contact_force demo_contact_force ...
     pre_demo_contact_force static_count pre_trans trans ...
     pre_demo_trans demo_trans
+
+
 
 if isempty(force_before_contact)
     force_before_contact = gravity_compensated_force;
@@ -44,7 +46,12 @@ if isempty(demo_ati_pose_seq)
     demo_count = 1;
     pre_demo_trans = zeros(3,1);
     demo_trans = zeros(3,1);
+    init = 1
 end
+
+demo_ati_pose_seq(1:20);
+demo_trans;
+pre_demo_trans;
 demo_energy_seq(1,1:500);
 
 % init params
@@ -60,15 +67,16 @@ k = 50;
 assembly_demo = rosparam('get','/assembly_demo');
 assembly_exe = rosparam('get','/assembly_exe');
 assembly_learning = rosparam('get','/assembly_learning');
-
+% plot(t,demo_energy_seq(1:500))
 % record demonstration data
 if assembly_demo
-    demo_trans = ati_pose_data(1:3);
+    demo_trans = ati_pose_data(1:3)
     demo_rotm = quat2rotm(ati_pose_data(4:7)');
     
-    demo_contact_force = gravity_compensated_force - force_before_contact;
+    demo_contact_force = gravity_compensated_force - force_before_contact
     
-    
+    pre_demo_trans;
+    pre_demo_contact_force;
     % judge if two nearest poses are the same
     if norm(demo_trans - pre_demo_trans) > 0.0005 || norm(demo_contact_force - pre_demo_contact_force) > 0.01
         demo_ati_pose_seq(:,:,demo_count) = RpToTrans(demo_rotm, demo_trans);
@@ -83,8 +91,8 @@ if assembly_demo
             T_diff = demo_ati_pose_seq(:,:,demo_count-1)\demo_ati_pose_seq(:,:,demo_count);
             se3_diff = MatrixLog6(T_diff);
             S_theta = se3ToVec(se3_diff); % the axis S is multiplied by the angle theta
-            demo_vel_seq(:,demo_count-1) = S_theta; 
-            demo_energy_seq(demo_count-1) = pre_demo_contact_force'*S_theta;
+            demo_vel_seq(:,demo_count-1) = S_theta*loop_rate_hz; 
+            demo_energy_seq(demo_count-1) = pre_demo_contact_force'*S_theta*loop_rate_hz;
         end
         
         demo_count = demo_count + 1;

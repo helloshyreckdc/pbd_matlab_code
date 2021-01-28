@@ -1,4 +1,4 @@
-function admittance_control_callback(~, ~, handles)
+function single_axis_admittance_control_callback(~, ~, handles)
 
 global loop_rate_hz
 global ref_pose_data
