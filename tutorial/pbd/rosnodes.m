@@ -23,6 +23,7 @@ masterHost = 'http://shyreckdc-16-PC:11311';
 speed_calculation = robotics.ros.Node('speed_calculation', masterHost);
 record_gravity_seq = robotics.ros.Node('record_gravity_seq', masterHost);
 
+global current_joint_data % from joint state
 global current_vel_data  % tool velocity in base frame
 global pre_vel_data
 global current_pose_data   % frame base to tool0
@@ -36,11 +37,13 @@ global pre_ati_pose_data       % frame base to frame ati_sensor
 global sr300_data
 global sr300_vel_data
 
+current_joint_data = zeros(6,1);
 current_pose_data = [0;0;0;1;0;0;0];
 pre_pose_data = [0;0;0;1;0;0;0];
 ref_pose_data = [0;0;0;1;0;0;0];
 sr300_pose_data = [0;0;0;1;0;0;0];
 averaged_raw_force_data = [0;0;0;0;0;0];
+gravity_compensated_force = [0;0;0;0;0;0];
 current_vel_data = [0;0;0;0;0;0];
 pre_vel_data = [0;0;0;0;0;0];
 averaged_calibrated_force_data = [0;0;0;0;0;0];
@@ -49,6 +52,7 @@ pre_ati_pose_data = [0;0;0;1;0;0;0];
 sr300_data = zeros(480,640,3);
 sr300_vel_data = zeros(6,1);
 
+current_joint = rossubscriber('/joint_states','sensor_msgs/JointState',@curr_jointCB);
 current_vel = rossubscriber('/tool_velocity','geometry_msgs/TwistStamped',@curr_velCB);
 current_pose = rossubscriber('/current_pose','geometry_msgs/Transform',@currCB);
 ref_pose = rossubscriber('/ref_traj','geometry_msgs/Transform',@refCB);
@@ -63,6 +67,11 @@ sr300_vel = rossubscriber('sr300_vel','geometry_msgs/Twist',@sr300_velCB);
 
 vel_pub = rospublisher('/ur/velocity', 'geometry_msgs/Twist');
 vel_msg = rosmessage(vel_pub);
+
+% topic for sending ur script
+ur_script_pub = rospublisher('/ur_driver/URScript', 'std_msgs/String');
+ur_script_msg = rosmessage(ur_script_pub);
+
 % gravity_compensated_force_pub = rospublisher('/gravity_compensated_wrench', 'geometry_msgs/WrenchStamped');
 % gravity_compensated_force_msg = rosmessage(gravity_compensated_force_pub);
 
@@ -82,6 +91,10 @@ visual_servo_calculation_handle.visual_servo_vel_msg = visual_servo_vel_msg;
 % for speed control
 speed_handle.vel_pub = vel_pub;
 speed_handle.vel_msg = vel_msg;
+
+% for ur script
+ur_script_handle.ur_script_pub = ur_script_pub;
+ur_script_handle.ur_script_msg = ur_script_msg;
 
 
 % record_gravity_seq_handle.scanPub = scanPub;
@@ -108,12 +121,23 @@ rosparam('set','/assembly_learning',false); % processing data and generate strat
 rosparam('set','/assembly_exe',false); % start execution
 
 
-global force_sensor_output atiRotm_matrix max_gravity_seq_columns 
+
+% move ur and record force sensor output
+rosparam('set','/move_robot_and_record',false);
+
+
+global raw_force_sensor_output force_sensor_output atiRotm_matrix max_gravity_seq_columns 
 global mass_matrix sensor_bias
+global force_sensor_gravity_compensated_output
 sensor_bias = zeros(6,1);
 mass_matrix = zeros(6,3);
-max_gravity_seq_columns = 20;
+% % for discrete record of force data
+% max_gravity_seq_columns = 20;
+% for contineous record of force data
+max_gravity_seq_columns = 1200;
+force_sensor_gravity_compensated_output = zeros(6,max_gravity_seq_columns);
 force_sensor_output = zeros(6,max_gravity_seq_columns);
+raw_force_sensor_output = zeros(6,max_gravity_seq_columns);
 atiRotm_matrix = zeros(3,3*max_gravity_seq_columns);
 
 
@@ -128,10 +152,11 @@ pause(5)  % wait for initialize
 % stable_check_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@stable_check_callback});
 
 % gravity_record_seq_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@gravity_record_seq_callback});
+gravity_contineous_record_seq_timer = ExampleHelperROSTimer(5/loop_rate_hz, {@gravity_contineous_record_seq_callback,ur_script_handle});
 % estimate_M_G_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@estimate_M_G_callback});
 
 % single_axis_admittance_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@single_axis_admittance_control_callback,speed_handle});
-multi_axis_admittance_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@multi_axis_admittance_control_callback,speed_handle});
+% multi_axis_admittance_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@multi_axis_admittance_control_callback,speed_handle});
 
 % assembly_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@assembly_control_callback,speed_handle});
 
@@ -164,6 +189,11 @@ global pre_vel_data
 pre_vel_data = current_vel_data;
 current_vel_data = [message.Twist.Linear.X;message.Twist.Linear.Y;message.Twist.Linear.Z;...
     message.Twist.Angular.X;message.Twist.Angular.Y;message.Twist.Angular.Z];  %quaternion w,x,y,z
+end
+
+function [] = curr_jointCB(~,message)
+global current_joint_data
+current_joint_data = message.Position;
 end
 
 function [] = ati_poseCB(~,message)
