@@ -131,10 +131,10 @@ global mass_matrix sensor_bias
 global force_sensor_gravity_compensated_output
 sensor_bias = zeros(6,1);
 mass_matrix = zeros(6,3);
-% % for discrete record of force data
-% max_gravity_seq_columns = 20;
-% for contineous record of force data
-max_gravity_seq_columns = 1200;
+% for discrete record of force data
+max_gravity_seq_columns = 20;
+% % for contineous record of force data
+% max_gravity_seq_columns = 600;
 force_sensor_gravity_compensated_output = zeros(6,max_gravity_seq_columns);
 force_sensor_output = zeros(6,max_gravity_seq_columns);
 raw_force_sensor_output = zeros(6,max_gravity_seq_columns);
@@ -151,12 +151,12 @@ pause(5)  % wait for initialize
 
 % stable_check_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@stable_check_callback});
 
-% gravity_record_seq_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@gravity_record_seq_callback});
-gravity_contineous_record_seq_timer = ExampleHelperROSTimer(5/loop_rate_hz, {@gravity_contineous_record_seq_callback,ur_script_handle});
-% estimate_M_G_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@estimate_M_G_callback});
+%gravity_record_seq_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@gravity_record_seq_callback});
+% gravity_contineous_record_seq_timer = ExampleHelperROSTimer(5/loop_rate_hz, {@gravity_contineous_record_seq_callback,ur_script_handle});
+%estimate_M_G_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@estimate_M_G_callback});
 
 % single_axis_admittance_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@single_axis_admittance_control_callback,speed_handle});
-% multi_axis_admittance_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@multi_axis_admittance_control_callback,speed_handle});
+multi_axis_admittance_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@multi_axis_admittance_control_callback,speed_handle});
 
 % assembly_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@assembly_control_callback,speed_handle});
 

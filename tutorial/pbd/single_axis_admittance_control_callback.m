@@ -14,8 +14,8 @@ vel_pub = handles.vel_pub;
 
 % define m,b,k along z-axis
 m = 5;
-b = 400;
-k = 50;
+b = 200;
+k = 5;
 
 
 

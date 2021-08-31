@@ -141,7 +141,7 @@ end
 % % demoRotm = quat2rotm(demo_pose_data(4:7)');   % quaternion value;  w x y z
 % cur_trans = ati_pose_data(1:3);
 % curRotm = quat2rotm(ati_pose_data(4:7)');
-% pre_trans = pre_ati_pose_data(1:3);
+% pre_trans = pre_ati_pose_data(1:3);guangyindubai
 % preRotm = quat2rotm(pre_ati_pose_data(4:7)');
 % 
 % contact_force = gravity_compensated_force - force_before_contact
