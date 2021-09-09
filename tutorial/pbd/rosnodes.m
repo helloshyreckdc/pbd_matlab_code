@@ -170,7 +170,11 @@ multi_axis_admittance_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@mu
 % are re-initialized
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-global demo_ati_pose_seq demo_count demo_vel_seq demo_energy_seq demo_force_seq;
+% choose task phase, 0 for waiting
+rosparam('set','/task_phase',0);
+% variables used in assembly demonstration
+global demo_seq_length demo_count demo_tool_vel_seq demo_energy_seq 
+global demo_pose_seq demo_tool_force_seq
 global t n;
 t=1:500;
 n=1;
