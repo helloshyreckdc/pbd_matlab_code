@@ -156,9 +156,17 @@ pause(5)  % wait for initialize
 %estimate_M_G_timer = ExampleHelperROSTimer(50/loop_rate_hz, {@estimate_M_G_callback});
 
 % single_axis_admittance_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@single_axis_admittance_control_callback,speed_handle});
-multi_axis_admittance_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@multi_axis_admittance_control_callback,speed_handle});
 
-% assembly_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@assembly_control_callback,speed_handle});
+
+
+% hybrid mode, the code may have some bug
+% multi_axis_admittance_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@multi_axis_admittance_control_callback,speed_handle});
+% static mode
+% multi_axis_admittance_control_keep_static_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@multi_axis_admittance_control_callback_keep_static,speed_handle});
+% drag mode
+% multi_axis_admittance_control_drag_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@multi_axis_admittance_control_callback_drag,speed_handle});
+% assembly mode
+assembly_control_timer = ExampleHelperROSTimer(1/loop_rate_hz, {@assembly_control_callback,speed_handle});
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
