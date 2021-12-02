@@ -1,3 +1,6 @@
+% backup before changing the learning algorithm
+
+
 function assembly_control_callback(~, ~, handles)
 
 %%%%%%%%%%%%%%%%%%%%% system variables %%%%%%%%%%%%%%%%%%%%%
@@ -17,7 +20,6 @@ global demo_tool_force_seq demo_pose_seq
 % The control frame can be changed in the installation setting of the control panel
 % The control frame is the reference frame of the obtained vel from ur
 % script
-
 persistent pre_base_T_tool;
 persistent force_before_contact;
 persistent pos_seq;
