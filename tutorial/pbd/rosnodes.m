@@ -183,6 +183,11 @@ rosparam('set','/task_phase',0);
 % variables used in assembly demonstration
 global demo_seq_length demo_count demo_tool_vel_seq demo_energy_seq 
 global demo_pose_seq demo_tool_force_seq
+
+% variables used in assembly execution
+global exe_seq_length exe_count exe_tool_vel_seq exe_energy_seq 
+global exe_pose_seq exe_tool_force_seq
+
 global t n;
 t=1:500;
 n=1;

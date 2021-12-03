@@ -11,6 +11,10 @@ global current_vel_data % tool0 vel in control frame
 global demo_seq_length demo_count demo_tool_vel_seq demo_energy_seq
 global demo_tool_force_seq demo_pose_seq
 
+% variables used in assembly execution
+global exe_seq_length exe_count exe_tool_vel_seq exe_energy_seq 
+global exe_pose_seq exe_tool_force_seq
+
 % the default control frame of ur is formed by the trans of tool frame w.r.t. the
 % base frame. The pose of the control frame is identical to the base
 % frame.
@@ -23,7 +27,7 @@ persistent force_before_contact;
 persistent pos_seq;
 persistent init_user_pose base_T_final_target_user
 persistent tool_T_user sensor_T_user
-persistent execution_count final_target_user_S_theta_per_second
+persistent final_target_user_S_theta_per_second
 persistent M B K;
 persistent assembly_time;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -50,7 +54,7 @@ end
 
 if isempty(pos_seq)
     pos_seq = zeros(4,4,10000);
-    execution_count = 1;
+    exe_count = 1;
 end
 
 % get control frame
@@ -110,14 +114,16 @@ if isempty(base_T_final_target_user)
     %%%%%%%%%%%%%% user-defined frame, nominal value %%%%%%%%%%%
     
     % custom user frame
-    % sensor_T_user = [eye(3) [0 0 0.31]'; 0 0 0 1];
+    sensor_T_user = [eye(3) [0 0 0.305]'; 0 0 0 1];
+    base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487, -0.018]'); % 短粗杆
+%     base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487, 0.025]'); % 短粗杆
     % sensor_T_user = [eye(3) [0 0 0.392]'; 0 0 0 1];  % 长杆
-    sensor_T_user = [eye(3) [0 0 0.277]'; 0 0 0 1];  % 短粗杆
+%     sensor_T_user = [eye(3) [0 0 0.277]'; 0 0 0 1];  % 短粗杆
 %     sensor_T_user = [eye(3) [0 0 0.377]'; 0 0 0 1];  % 短粗杆
     tool_T_user = sensor_T_tool \ sensor_T_user;
     control_T_user = sensor_T_control \ sensor_T_user;
     % base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487, -0.10]'); % 长杆
-    base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487, -0.032]'); % 短粗杆
+%     base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487, -0.032]'); % 短粗杆
 %      base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487, -0.131]'); % 短粗杆
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
@@ -194,20 +200,30 @@ elseif task_phase == 2
     % to overcome the friction force, the real target frame is set below the
     % theoretical target frame
     base_T_final_target_user = base_T_final_target_user - 0.006  
+%     base_T_final_target_user = base_T_final_target_user + 0.01
     
     % obtain assembly direction
     % at present,1 for rx, 2 for ry, 3 for rz, 4 for x, 5 for y, 6 for z in tool frame
     % it is better to choose the vel in stiffness diretion when stiffness
     % should be maintained in multi directions
     [~, direction_index] = max(sum(demo_energy_seq<-0.2,2));
-    M = [0.15*eye(3) zeros(3,3);zeros(3,3) 15*eye(3)]; % omega in the first three rows
-    B = [0.3*eye(3) zeros(3,3);zeros(3,3) 60*eye(3)];
-    K = [0*eye(3) zeros(3,3);zeros(3,3) 0*eye(3)];
+    
+%     M = [0.15*eye(3) zeros(3,3);zeros(3,3) 15*eye(3)]; % omega in the first three rows
+%     B = [0.3*eye(3) zeros(3,3);zeros(3,3) 60*eye(3)];
+%     K = [0*eye(3) zeros(3,3);zeros(3,3) 0*eye(3)];
     % % adjust the param along z-axis
+%     M(direction_index,direction_index) = 25
+%     B(direction_index,direction_index) = 130
+%     %     K(6,6) = 170;
+%     K(direction_index,direction_index) = 160
+
+    M = [0.5*eye(3) zeros(3,3);zeros(3,3) 10*eye(3)]; % omega in the first three rows
+    B = [0.8*eye(3) zeros(3,3);zeros(3,3) 60*eye(3)];
+    K = [0*eye(3) zeros(3,3);zeros(3,3) 0*eye(3)];
     M(direction_index,direction_index) = 25
-    B(direction_index,direction_index) = 130
+    B(direction_index,direction_index) = 100
     %     K(6,6) = 170;
-    K(direction_index,direction_index) = 160
+    K(direction_index,direction_index) = 100
     
     
     rosparam('set','/task_phase',0); % wait after learning
@@ -215,7 +231,7 @@ elseif task_phase == 2
     
 elseif task_phase == 3
     % execution mode
-        if execution_count < 3
+        if exe_count < 3
     disp("start execution")
         end
     if isempty(assembly_time)
@@ -242,21 +258,32 @@ elseif task_phase == 3
     rosparam('set','/speedl_acceleration',0.1);
     
     if isempty(M)
-        M = [0.15*eye(3) zeros(3,3);zeros(3,3) 15*eye(3)]; % omega in the first three rows
-        B = [0.3*eye(3) zeros(3,3);zeros(3,3) 60*eye(3)];
+%         M = [0.15*eye(3) zeros(3,3);zeros(3,3) 15*eye(3)]; % omega in the first three rows
+%         B = [0.3*eye(3) zeros(3,3);zeros(3,3) 60*eye(3)];
+%         K = [0*eye(3) zeros(3,3);zeros(3,3) 0*eye(3)];
+%         % % adjust the param along z-axis
+%         %     M(6,6) = 25;
+%         %     B(6,6) = 130;
+%         %     K(6,6) = 250;
+%         M(6,6) = 25;
+%         B(6,6) = 130;
+%         K(6,6) = 160;
+
+                    M = [1*eye(3) zeros(3,3);zeros(3,3) 15*eye(3)]; % omega in the first three rows
+        B = [2*eye(3) zeros(3,3);zeros(3,3) 60*eye(3)];
         K = [0*eye(3) zeros(3,3);zeros(3,3) 0*eye(3)];
         % % adjust the param along z-axis
         %     M(6,6) = 25;
         %     B(6,6) = 130;
         %     K(6,6) = 250;
         M(6,6) = 25;
-        B(6,6) = 130;
-        K(6,6) = 160;
+        B(6,6) = 100;
+        K(6,6) = 100;
     end
     
     
-    if (assembly_time - execution_count/loop_rate_hz) > 0
-        base_T_target_user = base_T_final_target_user * MatrixExp6(VecTose3(final_target_user_S_theta_per_second * (assembly_time - execution_count/loop_rate_hz)));
+    if (assembly_time - exe_count/loop_rate_hz) > 0
+        base_T_target_user = base_T_final_target_user * MatrixExp6(VecTose3(final_target_user_S_theta_per_second * (assembly_time - exe_count/loop_rate_hz)));
     else
         base_T_target_user = base_T_final_target_user;
     end
@@ -332,6 +359,8 @@ elseif task_phase == 3
     % emergency stop
     if max(abs(contact_force)) > 50
         control_V_control_feedback = zeros(6,1);
+        % set task phase, 0 for waiting
+        rosparam('set','/task_phase',0);
     end
     
     vel_msg.Angular.X = control_V_control_feedback(1);
@@ -359,7 +388,7 @@ elseif task_phase == 3
     
     
     send(vel_pub,vel_msg);
-    execution_count = execution_count+1;
+    exe_count = exe_count+1;
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
