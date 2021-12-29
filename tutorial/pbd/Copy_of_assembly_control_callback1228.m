@@ -7,8 +7,6 @@ global ati_pose_data
 global gravity_compensated_force
 global current_vel_data % tool0 vel in control frame
 
-global initial_user_x_y
-
 % variables in demo
 global demo_seq_length demo_count demo_tool_vel_seq demo_energy_seq
 global demo_tool_force_seq demo_pose_seq
@@ -68,10 +66,6 @@ end
 base_trans_tool = current_pose_data(1:3);
 base_T_control = RpToTrans(eye(3), base_trans_tool); % update the control frame in real time
 
-if isempty(initial_user_x_y)
-    initial_user_x_y = current_pose_data(1:2);
-end
-
 % get tool frame
 base_rot_tool = quat2rotm(current_pose_data(4:7)');
 base_T_tool = RpToTrans(base_rot_tool, base_trans_tool); % update the tool frame in real time
@@ -126,9 +120,7 @@ if isempty(base_T_final_target_user)
     
     % custom user frame
     sensor_T_user = [eye(3) [0 0 0.305]'; 0 0 0 1];
-%     base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487,
-%     -0.018]'); % 短粗杆 common
-    base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487, -0.03]'); % 短粗杆 test on goal
+    base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487, -0.018]'); % 短粗杆
     %     base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487, 0.025]'); % 短粗杆
     % sensor_T_user = [eye(3) [0 0 0.392]'; 0 0 0 1];  % 长杆
     %     sensor_T_user = [eye(3) [0 0 0.277]'; 0 0 0 1];  % 短粗杆
@@ -158,6 +150,9 @@ if task_phase == 0
     
 elseif task_phase == 1
     % demonstration mode
+    if demo_count < 3
+        disp("start demonstration")
+    end
     if isempty(demo_seq_length)
         demo_seq_length = loop_rate_hz * 20; % record 20 seconds
         demo_count = 1;
@@ -166,11 +161,6 @@ elseif task_phase == 1
         demo_tool_force_seq = zeros(6, demo_seq_length);
         demo_pose_seq = zeros(4, 4, demo_seq_length);
     end
-    
-    if demo_count < 3
-        disp("start demonstration")
-    end
-
     
     % using system vel in demonstration mode, using derived vel in execution
     % The sys vel has a delay, and the derived vel has some small vibration due
@@ -294,17 +284,6 @@ elseif task_phase == 3
         M(6,6) = 25;
         B(6,6) = 100;
         K(6,6) = 100;
-
-%         M = [2*eye(3) zeros(3,3);zeros(3,3) 10*eye(3)]; % omega in the first three rows
-%         B = [4*eye(3) zeros(3,3);zeros(3,3) 50*eye(3)];
-%         K = [0*eye(3) zeros(3,3);zeros(3,3) 0*eye(3)];
-%         % % adjust the param along z-axis
-%         %     M(6,6) = 25;
-%         %     B(6,6) = 130;
-%         %     K(6,6) = 250;
-%         M(6,6) = 10;
-%         B(6,6) = 20;
-%         K(6,6) = 80;
     end
     
     
@@ -393,13 +372,6 @@ elseif task_phase == 3
     
     % emergency stop
     if max(abs(contact_force)) > 50
-        control_V_control_feedback = zeros(6,1);
-        % set task phase, 0 for waiting
-        rosparam('set','/task_phase',0);
-    end
-    
-    % on goal
-    if max(abs(contact_force)) > 10 && abs(base_trans_tool(3)-0.377) < 0.003
         control_V_control_feedback = zeros(6,1);
         % set task phase, 0 for waiting
         rosparam('set','/task_phase',0);
