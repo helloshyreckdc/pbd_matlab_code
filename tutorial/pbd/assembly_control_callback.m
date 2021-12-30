@@ -7,7 +7,7 @@ global ati_pose_data
 global gravity_compensated_force
 global current_vel_data % tool0 vel in control frame
 
-global initial_user_x_y
+global base_T_initial_compliance_pose
 
 % variables in demo
 global demo_seq_length demo_count demo_tool_vel_seq demo_energy_seq
@@ -57,7 +57,7 @@ end
 if isempty(exe_count)
     %pos_seq = zeros(4,4,10000);
     exe_count = 1;
-    exe_seq_length = loop_rate_hz * 30; % record 30 seconds
+    exe_seq_length = loop_rate_hz * 20; % record 20 seconds
     exe_tool_vel_seq = zeros(6, exe_seq_length);
     exe_energy_seq = zeros(6, exe_seq_length);
     exe_tool_force_seq = zeros(6, exe_seq_length);
@@ -67,10 +67,6 @@ end
 % get control frame
 base_trans_tool = current_pose_data(1:3);
 base_T_control = RpToTrans(eye(3), base_trans_tool); % update the control frame in real time
-
-if isempty(initial_user_x_y)
-    initial_user_x_y = current_pose_data(1:2);
-end
 
 % get tool frame
 base_rot_tool = quat2rotm(current_pose_data(4:7)');
@@ -125,10 +121,10 @@ if isempty(base_T_final_target_user)
     %%%%%%%%%%%%%% user-defined frame, nominal value %%%%%%%%%%%
     
     % custom user frame
-    sensor_T_user = [eye(3) [0 0 0.305]'; 0 0 0 1];
+    sensor_T_user = [eye(3) [0 0 0.31]'; 0 0 0 1];
 %     base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487,
 %     -0.018]'); % 短粗杆 common
-    base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487, -0.03]'); % 短粗杆 test on goal
+    base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487, -0.04]'); % 短粗杆 test on goal
     %     base_T_final_target_user = RpToTrans(roty(pi),[0.109, 0.487, 0.025]'); % 短粗杆
     % sensor_T_user = [eye(3) [0 0 0.392]'; 0 0 0 1];  % 长杆
     %     sensor_T_user = [eye(3) [0 0 0.277]'; 0 0 0 1];  % 短粗杆
@@ -284,16 +280,26 @@ elseif task_phase == 3
         %         B(6,6) = 130;
         %         K(6,6) = 160;
         
-        M = [1*eye(3) zeros(3,3);zeros(3,3) 15*eye(3)]; % omega in the first three rows
-        B = [2*eye(3) zeros(3,3);zeros(3,3) 60*eye(3)];
-        K = [0*eye(3) zeros(3,3);zeros(3,3) 0*eye(3)];
+%         M = [1*eye(3) zeros(3,3);zeros(3,3) 15*eye(3)]; % omega in the first three rows
+%         B = [2*eye(3) zeros(3,3);zeros(3,3) 60*eye(3)];
+%         K = [0*eye(3) zeros(3,3);zeros(3,3) 0*eye(3)];
+%         % % adjust the param along z-axis
+%         %     M(6,6) = 25;
+%         %     B(6,6) = 130;
+%         %     K(6,6) = 250;
+%         M(6,6) = 25;
+%         B(6,6) = 100;
+%         K(6,6) = 100;
+        
+        % test
+        M = [4*eye(3) zeros(3,3);zeros(3,3) 15*eye(3)]; % omega in the first three rows
+        B = [40*eye(3) zeros(3,3);zeros(3,3) 300*eye(3)];
+        K = [50*eye(3) zeros(3,3);zeros(3,3) 2000*eye(3)];
         % % adjust the param along z-axis
-        %     M(6,6) = 25;
-        %     B(6,6) = 130;
-        %     K(6,6) = 250;
-        M(6,6) = 25;
-        B(6,6) = 100;
-        K(6,6) = 100;
+            M(6,6) = 25;
+            B(6,6) = 100;
+            K(6,6) = 100;
+
 
 %         M = [2*eye(3) zeros(3,3);zeros(3,3) 10*eye(3)]; % omega in the first three rows
 %         B = [4*eye(3) zeros(3,3);zeros(3,3) 50*eye(3)];
@@ -313,14 +319,26 @@ elseif task_phase == 3
     else
         base_T_target_user = base_T_final_target_user;
     end
-    base_T_user
-    base_T_final_target_user
+
+    if isempty(base_T_initial_compliance_pose)
+        base_T_initial_compliance_pose = base_T_user;
+    end
+
+    
+    % impedance system in z-axis
     target_user_T_user = base_T_target_user \ base_T_user;
     target_user_se3 = MatrixLog6(target_user_T_user);
     target_user_S_theta = se3ToVec(target_user_se3); % the angle theta has been included
     user_S_theta = Adjoint(inv(target_user_T_user))*target_user_S_theta;
     tool_S_theta = Adjoint(tool_T_user)*user_S_theta;
     
+    % impedence system in other directions
+    tool_T_compliance_pose = base_T_tool \ base_T_initial_compliance_pose;
+    compliance_pose_T_user = base_T_initial_compliance_pose \ base_T_user;
+    compliance_pose_se3 = MatrixLog6(compliance_pose_T_user);
+    compliance_pose_S_theta = se3ToVec(compliance_pose_se3); % the angle theta has been included
+    tool_T_compliance_pose_S_theta = Adjoint(tool_T_compliance_pose)*compliance_pose_S_theta;
+
     %%%%%%%%%%%%%%%%%%
     
     % contact_force;
@@ -347,7 +365,16 @@ elseif task_phase == 3
     B_tool = Ad_user_T_tool'*B*Ad_user_T_tool;
     K_tool = Ad_user_T_tool'*K*Ad_user_T_tool;
     %     tool_contact_force(1:3) = tool_contact_force(1:3)/2;
-    tool_dV_from_user = M_tool\(tool_contact_force - K_tool*tool_S_theta - B_tool*tool_V_tool);
+    
+    % selection matrix, P_z control the force in z-axis
+    P_z = zeros(6,6);
+    P_z(6,6) = 1;
+    % selection matrix, P_other control wrench in other five directions
+    P_other = eye(6) - P_z;
+    
+    tool_dV_from_user = M_tool\(tool_contact_force - P_z*K_tool*tool_S_theta - P_other*K_tool*tool_T_compliance_pose_S_theta - B_tool*tool_V_tool);
+    f_other = K_tool*tool_T_compliance_pose_S_theta
+    f_z = K_tool*tool_S_theta
     % tool_dV_from_user = M\(tool_contact_force - K*tool_S_theta - B*tool_V_tool);
     
     
@@ -384,6 +411,10 @@ elseif task_phase == 3
     
     updated_tool_V_tool(1:3) = (1*tool_dV_from_user(1:3)/(loop_rate_hz) + 0.2*tool_V_tool(1:3));
     updated_tool_V_tool(4:6) = (1*tool_dV_from_user(4:6)/(loop_rate_hz) + 0.2*tool_V_tool(4:6));
+
+%     % for test
+%     updated_tool_V_tool(1:3) = (1*tool_dV_from_user(1:3)/(loop_rate_hz) + 1*tool_V_tool(1:3));
+%     updated_tool_V_tool(4:6) = (1*tool_dV_from_user(4:6)/(loop_rate_hz) + 1*tool_V_tool(4:6));
     
     control_V_control_feedback = Adjoint(inv(tool_T_control))*updated_tool_V_tool;
     
@@ -395,7 +426,7 @@ elseif task_phase == 3
     if max(abs(contact_force)) > 50
         control_V_control_feedback = zeros(6,1);
         % set task phase, 0 for waiting
-        rosparam('set','/task_phase',0);
+        rosparam('set','/task_phase',0);        
     end
     
     % on goal
