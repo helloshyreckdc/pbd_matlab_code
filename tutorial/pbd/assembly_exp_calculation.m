@@ -1,0 +1,11 @@
+R = 16.008;
+r = 15.990;
+D = 2*R;
+d = 2*r;
+l = 30;
+c = (R-r)/R;
+Lg = l;
+theta0 = (D-d)/sqrt(D^2-d^2);
+epsilon0 = 0.5 + c*R
+Fx = -6.32;
+Kx = -Fx/(Lg*(theta0-c*D/l)+epsilon0)
